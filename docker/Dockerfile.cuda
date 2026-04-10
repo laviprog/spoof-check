@@ -1,4 +1,4 @@
-FROM nvidia/cuda:12.2.2-cudnn8-runtime-ubuntu22.04
+FROM nvidia/cuda:13.0.2-cudnn-runtime-ubuntu24.04
 
 RUN apt-get update && apt-get install -y --no-install-recommends \
     curl \
@@ -9,7 +9,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 WORKDIR /app
 
 ENV UV_PYTHON=3.12
-ENV PIP_EXTRA_INDEX_URL="https://download.pytorch.org/whl/cu122"
+ENV PIP_EXTRA_INDEX_URL="https://download.pytorch.org/whl/cu130"
 
 RUN curl -LsSf https://astral.sh/uv/install.sh | sh
 ENV PATH="/root/.local/bin:${PATH}"
