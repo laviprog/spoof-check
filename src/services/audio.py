@@ -16,7 +16,7 @@ class AudioService:
 
     def __init__(self):
         """Initialize the audio service."""
-        self.detector = SpoofDetector()
+        self.detector = SpoofDetector(device=settings.DEVICE)
         self.files_dir = Path(settings.FILES_DIR)
         self.files_dir.mkdir(parents=True, exist_ok=True)
         log.info("AudioService initialized", files_dir=str(self.files_dir))
