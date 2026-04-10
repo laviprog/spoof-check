@@ -74,16 +74,16 @@ class Logging(Generic[RendererType]):
                 },
                 "loggers": {
                     "": {"handlers": ["default"], "level": level, "propagate": False},
-                    # TODO: Uncomment and configure loggers for third-party libraries if needed
-                    # "uvicorn": {"handlers": [], "level": "INFO", "propagate": True},
-                    # "uvicorn.error": {"handlers": [], "level": "INFO", "propagate": True},
-                    # "uvicorn.access": {"handlers": [], "level": "NOTSET", "propagate": False},
-                    # "sqlalchemy": {"handlers": [], "level": "WARNING", "propagate": True},
-                    # "python_multipart.multipart": {
-                    #     "handlers": [],
-                    #     "level": "WARNING",
-                    #     "propagate": True,
-                    # },
+                    "uvicorn": {"handlers": [], "level": "INFO", "propagate": True},
+                    "uvicorn.error": {"handlers": [], "level": "INFO", "propagate": True},
+                    "uvicorn.access": {"handlers": [], "level": "NOTSET", "propagate": False},
+                    "httpcore.http11": {"handlers": [], "level": "NOTSET", "propagate": False},
+                    "httpcore.connection": {"handlers": [], "level": "NOTSET", "propagate": False},
+                    "python_multipart.multipart": {
+                        "handlers": [],
+                        "level": "WARNING",
+                        "propagate": True,
+                    },
                 },
             }
         )
