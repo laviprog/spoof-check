@@ -1,0 +1,29 @@
+services:
+  spoof-check:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile # docker/Dockerfile.cuda for CUDA support
+    container_name: spoof-check
+    image: spoof-check:1.0.0
+    ports:
+      - "127.0.0.1:7861:7860"
+    env_file:
+      - .env
+    networks:
+      - spoof-check-network
+    volumes:
+      - ./data/files:/app/files
+      - ./models:/app/models
+    restart: unless-stopped
+    #deploy:
+    #  resources:
+    #    reservations:
+    #      devices:
+    #        - driver: nvidia
+    #          capabilities: ["gpu"]
+    #          device_ids: ["0"]
+
+networks:
+  spoof-check-network:
+    name: spoof-check-network
+    driver: bridge
