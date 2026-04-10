@@ -4,9 +4,9 @@ WORKDIR /app
 
 ENV UV_PYTHON=3.12
 ENV PIP_EXTRA_INDEX_URL="https://download.pytorch.org/whl/cu122"
+ENV PATH="/root/.local/bin:${PATH}"
 
 RUN curl -LsSf https://astral.sh/uv/install.sh | sh
-ENV PATH="/root/.local/bin:${PATH}"
 
 COPY pyproject.toml uv.lock ./
 RUN uv sync --frozen --no-dev
