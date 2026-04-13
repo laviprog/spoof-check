@@ -24,7 +24,7 @@ class GradioApp:
         """
         try:
             if audio_file is None:
-                return {}, "No file uploaded", ""
+                return {}, "Файл не загружен", ""
 
             log.info("Processing audio file", file=audio_file)
 
@@ -33,19 +33,20 @@ class GradioApp:
 
             # Format probabilities for display
             probabilities = {
-                "Bonafide": result["bonafide"],
-                "Spoof": result["spoof"],
+                "Подлинный": result["bonafide"],
+                "Поддельный": result["spoof"],
             }
 
             # Format classification
             classification = result["classification"].upper()
             classification_color = "🟢" if classification == "BONAFIDE" else "🔴"
-            classification_text = f"{classification_color} **{classification}**"
+            classification_label = "Подлинный" if classification == "BONAFIDE" else "Поддельный"
+            classification_text = f"{classification_color} **{classification_label}**"
 
             # Format detailed results
             details = ""
             for i, pred in enumerate(result["chunk_predictions"], 1):
-                details += f"\n- **Chunk {i}**: Bonafide: {pred['bonafide']:.4f}, Spoof: {pred['spoof']:.4f}"
+                details += f"\n- **Фрагмент {i}**: Подлинный: {pred['bonafide']:.4f}, Поддельный: {pred['spoof']:.4f}"
 
             log.info(
                 "Audio processed successfully",
@@ -57,66 +58,63 @@ class GradioApp:
 
         except Exception as e:
             log.error("Failed to process audio", error=str(e))
-            error_msg = f"❌ **Error**: {str(e)}"
+            error_msg = f"❌ **Ошибка**: {str(e)}"
             return {}, error_msg, ""
 
     def create_interface(self) -> gr.Blocks:
         """
         Create and configure the Gradio interface.
-
-        Returns:
-            Configured Gradio Blocks interface
         """
         with gr.Blocks(
-            title="Audio Spoof Detection",
+            title="Определение поддельного аудио",
             theme=gr.themes.Soft(),
         ) as app:
             gr.Markdown(
                 """
-                # 🎵 Audio Spoof Detection
+                # 🎵 Определение поддельного аудио
 
-                Upload an audio file to detect whether it's **bonafide** (genuine) or **spoof** (synthetic/fake).
+                Загрузите аудиофайл, чтобы определить, является ли он **подлинным** (настоящим) или **поддельным** (синтетическим/фейковым).
 
-                **Supported formats**: WAV, MP3, FLAC, OGG, and other common audio formats
+                **Поддерживаемые форматы**: WAV, MP3, FLAC, OGG.
                 """
             )
 
             with gr.Row():
                 with gr.Column(scale=1):
                     audio_input = gr.Audio(
-                        label="Upload Audio File",
+                        label="Загрузите аудиофайл",
                         type="filepath",
                         sources=["upload"],
                     )
 
                     submit_btn = gr.Button(
-                        "🔍 Analyze Audio",
+                        "🔍 Проанализировать аудио",
                         variant="primary",
                         size="lg",
                     )
 
                     gr.Markdown(
                         """
-                        ### ℹ️ Tips
-                        - Upload clear audio files for best results
-                        - Longer files are automatically split into chunks
-                        - Processing time depends on file duration
+                        ### ℹ️ Советы
+                        - Загружайте чёткие аудиофайлы для лучших результатов
+                        - Длинные файлы автоматически разбиваются на фрагменты
+                        - Время обработки зависит от длительности файла
                         """
                     )
 
                 with gr.Column(scale=1):
                     classification_output = gr.Markdown(
-                        label="Classification Result",
+                        label="Результат обработки",
                         value="",
                     )
 
                     probability_output = gr.Label(
-                        label="Probabilities",
+                        label="Вероятности",
                         num_top_classes=2,
                     )
 
                     details_output = gr.Markdown(
-                        label="Detailed Analysis",
+                        label="Детальный анализ",
                         value="",
                     )
 
@@ -145,12 +143,6 @@ class GradioApp:
     ):
         """
         Launch the Gradio application.
-
-        Args:
-            server_name: Server hostname
-            server_port: Server port
-            share: Whether to create a public link
-            **kwargs: Additional arguments for gr.Blocks.launch()
         """
         app = self.create_interface()
 
