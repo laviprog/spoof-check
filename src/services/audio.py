@@ -1,6 +1,7 @@
 import os
 import uuid
 from pathlib import Path
+
 import structlog
 
 from src.config import settings
@@ -16,10 +17,15 @@ class AudioService:
 
     def __init__(self):
         """Initialize the audio service."""
-        self.detector = SpoofDetector(device=settings.DEVICE)
+        self.detector: SpoofDetector | None = None
         self.files_dir = Path(settings.FILES_DIR)
         self.files_dir.mkdir(parents=True, exist_ok=True)
         log.info("AudioService initialized", files_dir=str(self.files_dir))
+
+    def _get_detector(self) -> SpoofDetector:
+        if self.detector is None:
+            self.detector = SpoofDetector(device=settings.DEVICE)
+        return self.detector
 
     def save_uploaded_file(self, file_path: str) -> str:
         """
@@ -66,7 +72,7 @@ class AudioService:
             saved_path = self.save_uploaded_file(audio_path)
 
             # Perform detection
-            result = self.detector.predict(saved_path)
+            result = self._get_detector().predict(saved_path)
 
             # Add classification
             result["classification"] = (

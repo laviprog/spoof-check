@@ -13,11 +13,11 @@ class Settings(BaseSettings):
     FILES_DIR: str = "data/files"  # Directory for uploaded files
     ROOT_PATH: str = "/spoof-check"  # WEB root path
 
-    DEVICE: str = "cpu" # Device to run inference on (e.g., "cpu", "cuda", "cuda:0")
+    DEVICE: str = "cpu"  # Device to run inference on (e.g., "cpu", "cuda", "cuda:0")
     COMPUTE_TYPE: str = "float32"
     MODELS_DIR: str = "models"  # Directory for storing models
 
-
+    ANTISPOOFING_BASE_URL: str
 
 
 settings = Settings()

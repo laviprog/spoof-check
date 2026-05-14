@@ -2,7 +2,6 @@ import torch
 import torchaudio
 import numpy as np
 from pathlib import Path
-from typing import Tuple, List, Dict
 import structlog
 
 from src.core.model import Spectra0Model
@@ -104,7 +103,7 @@ class SpoofDetector:
             log.error("Failed to load audio", path=audio_path, error=str(e))
             raise
 
-    def _split_audio_into_chunks(self, waveform: torch.Tensor) -> List[torch.Tensor]:
+    def _split_audio_into_chunks(self, waveform: torch.Tensor) -> list[torch.Tensor]:
         """
         Split audio into overlapping chunks.
         """
@@ -139,7 +138,7 @@ class SpoofDetector:
         return chunks
 
     @torch.inference_mode()
-    def _predict_chunk(self, chunk: torch.Tensor) -> Tuple[float, float]:
+    def _predict_chunk(self, chunk: torch.Tensor) -> tuple[float, float]:
         """
         Predict spoof probability for a single chunk.
         """
@@ -157,7 +156,7 @@ class SpoofDetector:
 
         return bonafide_prob, spoof_prob
 
-    def predict(self, audio_path: str) -> Dict[str, float]:
+    def predict(self, audio_path: str) -> dict:
         """
         Predict spoof probabilities for an audio file.
         """

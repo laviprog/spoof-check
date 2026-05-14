@@ -1,9 +1,11 @@
+from typing import Dict, Tuple
+
 import gradio as gr
-from typing import Tuple, Dict
 import structlog
 
-from src.services.audio import AudioService
+from src.api.anti_spoofing import AntispoofingClient, AntiSpoofingResponse, PredictionResult
 from src.config import settings
+from src.services.audio import AudioService
 
 log = structlog.get_logger()
 
@@ -16,9 +18,14 @@ class GradioApp:
     def __init__(self):
         """Initialize the Gradio app."""
         self.audio_service = AudioService()
+        self.antispoofing_client = AntispoofingClient()
         log.info("GradioApp initialized")
 
-    def process_audio(self, audio_file) -> Tuple[Dict, str, str]:
+    async def process_audio(
+        self,
+        audio_file,
+        model_source: str,
+    ) -> Tuple[Dict[str, float], str, str]:
         """
         Process uploaded audio file and return results.
         """
@@ -26,40 +33,111 @@ class GradioApp:
             if audio_file is None:
                 return {}, "Файл не загружен", ""
 
-            log.info("Processing audio file", file=audio_file)
+            log.info("Processing audio file", file=audio_file, model_source=model_source)
 
-            # Detect spoof
-            result = self.audio_service.detect_spoof(audio_file, cleanup=True)
+            if model_source == "Внешняя модель":
+                return await self._process_with_external_model(audio_file)
 
-            # Format probabilities for display
-            probabilities = {
-                "Подлинный": result["bonafide"],
-                "Поддельный": result["spoof"],
-            }
-
-            # Format classification
-            classification = result["classification"].upper()
-            classification_color = "🟢" if classification == "BONAFIDE" else "🔴"
-            classification_label = "Подлинный" if classification == "BONAFIDE" else "Поддельный"
-            classification_text = f"{classification_color} **{classification_label}**"
-
-            # Format detailed results
-            details = ""
-            for i, pred in enumerate(result["chunk_predictions"], 1):
-                details += f"\n- **Фрагмент {i}**: Подлинный: {pred['bonafide']:.4f}, Поддельный: {pred['spoof']:.4f}"
-
-            log.info(
-                "Audio processed successfully",
-                classification=classification,
-                num_chunks=result["num_chunks"],
-            )
-
-            return probabilities, classification_text, details
+            return self._process_with_local_model(audio_file)
 
         except Exception as e:
             log.error("Failed to process audio", error=str(e))
             error_msg = f"❌ **Ошибка**: {str(e)}"
             return {}, error_msg, ""
+
+    def _process_with_local_model(self, audio_file) -> Tuple[Dict[str, float], str, str]:
+        result = self.audio_service.detect_spoof(audio_file, cleanup=True)
+
+        probabilities = {
+            "Подлинный": result["bonafide"],
+            "Поддельный": result["spoof"],
+        }
+        classification_text = self._format_classification(result["classification"])
+
+        details = "**Источник модели**: локальная\n"
+        for i, pred in enumerate(result["chunk_predictions"], 1):
+            details += (
+                f"\n- **Фрагмент {i}**: "
+                f"Подлинный: {pred['bonafide']:.4f}, "
+                f"Поддельный: {pred['spoof']:.4f}"
+            )
+
+        log.info(
+            "Audio processed locally",
+            classification=result["classification"],
+            num_chunks=result["num_chunks"],
+        )
+
+        return probabilities, classification_text, details
+
+    async def _process_with_external_model(
+        self,
+        audio_file,
+    ) -> Tuple[Dict[str, float], str, str]:
+        result = await self.antispoofing_client.predict(audio_file)
+        prediction = result.global_prediction or self._aggregate_external_windows(result)
+
+        probabilities = {
+            "Подлинный": prediction.bonafide_probability,
+            "Поддельный": prediction.spoof_probability,
+        }
+        classification_text = self._format_classification(prediction.label.value)
+        details = self._format_external_details(result)
+
+        log.info(
+            "Audio processed by external API",
+            classification=prediction.label.value,
+            num_windows=len(result.windows),
+            request_id=str(result.request_id),
+        )
+
+        return probabilities, classification_text, details
+
+    @staticmethod
+    def _aggregate_external_windows(result: AntiSpoofingResponse):
+        if not result.windows:
+            raise ValueError("External anti-spoofing service returned no window predictions")
+
+        spoof_probability = sum(window.spoof_probability for window in result.windows) / len(
+            result.windows
+        )
+        bonafide_probability = sum(window.bonafide_probability for window in result.windows) / len(
+            result.windows
+        )
+        label = "spoof" if spoof_probability > bonafide_probability else "bonafide"
+        confidence = max(spoof_probability, bonafide_probability)
+
+        return PredictionResult(
+            label=label,
+            confidence=confidence,
+            spoof_probability=spoof_probability,
+            bonafide_probability=bonafide_probability,
+        )
+
+    @staticmethod
+    def _format_classification(classification: str) -> str:
+        classification = classification.upper()
+        classification_color = "🟢" if classification == "BONAFIDE" else "🔴"
+        classification_label = "Подлинный" if classification == "BONAFIDE" else "Поддельный"
+        return f"{classification_color} **{classification_label}**"
+
+    @staticmethod
+    def _format_external_details(result: AntiSpoofingResponse) -> str:
+        details = (
+            "**Источник модели**: внешняя\n"
+            f"**Request ID**: `{result.request_id}`\n"
+            f"**Модель**: {result.processing.model_name} {result.processing.model_version}\n"
+            f"**Время обработки**: {result.processing.processing_time_ms} мс\n"
+        )
+        for window in result.windows:
+            details += (
+                f"\n- **Фрагмент {window.window_index + 1}** "
+                f"({window.start_sec:.2f}-{window.end_sec:.2f} сек): "
+                f"Подлинный: {window.bonafide_probability:.4f}, "
+                f"Поддельный: {window.spoof_probability:.4f}"
+            )
+
+        return details
 
     def create_interface(self) -> gr.Blocks:
         """
@@ -73,7 +151,8 @@ class GradioApp:
                 """
                 # 🎵 Определение поддельного аудио
 
-                Загрузите аудиофайл, чтобы определить, является ли он **подлинным** (настоящим) или **поддельным** (синтетическим/фейковым).
+                Загрузите аудиофайл, чтобы определить, является ли он **подлинным**
+                (настоящим) или **поддельным** (синтетическим/фейковым).
 
                 **Поддерживаемые форматы**: WAV, MP3, FLAC, OGG.
                 """
@@ -85,6 +164,12 @@ class GradioApp:
                         label="Загрузите аудиофайл",
                         type="filepath",
                         sources=["upload"],
+                    )
+
+                    model_source = gr.Radio(
+                        choices=["Локальная модель", "Внешняя модель"],
+                        value="Локальная модель",
+                        label="Источник модели",
                     )
 
                     submit_btn = gr.Button(
@@ -121,14 +206,20 @@ class GradioApp:
             # Connect the button to the processing function
             submit_btn.click(
                 fn=self.process_audio,
-                inputs=[audio_input],
+                inputs=[audio_input, model_source],
                 outputs=[probability_output, classification_output, details_output],
             )
 
             # Also trigger on audio upload
             audio_input.change(
                 fn=self.process_audio,
-                inputs=[audio_input],
+                inputs=[audio_input, model_source],
+                outputs=[probability_output, classification_output, details_output],
+            )
+
+            model_source.change(
+                fn=self.process_audio,
+                inputs=[audio_input, model_source],
                 outputs=[probability_output, classification_output, details_output],
             )
 
