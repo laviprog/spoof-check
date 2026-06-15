@@ -25,6 +25,7 @@ class GradioApp:
         self,
         audio_file,
         model_source: str,
+        hop_sec: float,
     ) -> Tuple[Dict[str, float], str, str]:
         """
         Process uploaded audio file and return results.
@@ -36,7 +37,7 @@ class GradioApp:
             log.info("Processing audio file", file=audio_file, model_source=model_source)
 
             if model_source == "Внешняя модель":
-                return await self._process_with_external_model(audio_file)
+                return await self._process_with_external_model(audio_file, hop_sec)
 
             return self._process_with_local_model(audio_file)
 
@@ -73,8 +74,9 @@ class GradioApp:
     async def _process_with_external_model(
         self,
         audio_file,
+        hop_sec: float,
     ) -> Tuple[Dict[str, float], str, str]:
-        result = await self.antispoofing_client.predict(audio_file)
+        result = await self.antispoofing_client.predict(audio_file, hop_sec=hop_sec)
         prediction = result.global_prediction or self._aggregate_external_windows(result)
 
         probabilities = {
@@ -172,6 +174,22 @@ class GradioApp:
                         label="Источник модели",
                     )
 
+                    hop_sec_slider = gr.Slider(
+                        minimum=0.5,
+                        maximum=10.0,
+                        value=2.0,
+                        step=0.5,
+                        label="Шаг окна анализа (сек)",
+                        info="Только для внешней модели",
+                        visible=False,
+                    )
+
+                    model_source.change(
+                        fn=lambda src: gr.update(visible=src == "Внешняя модель"),
+                        inputs=model_source,
+                        outputs=hop_sec_slider,
+                    )
+
                     submit_btn = gr.Button(
                         "🔍 Проанализировать аудио",
                         variant="primary",
@@ -203,24 +221,25 @@ class GradioApp:
                         value="",
                     )
 
-            # Connect the button to the processing function
+            processing_inputs = [audio_input, model_source, hop_sec_slider]
+            processing_outputs = [probability_output, classification_output, details_output]
+
             submit_btn.click(
                 fn=self.process_audio,
-                inputs=[audio_input, model_source],
-                outputs=[probability_output, classification_output, details_output],
+                inputs=processing_inputs,
+                outputs=processing_outputs,
             )
 
-            # Also trigger on audio upload
             audio_input.change(
                 fn=self.process_audio,
-                inputs=[audio_input, model_source],
-                outputs=[probability_output, classification_output, details_output],
+                inputs=processing_inputs,
+                outputs=processing_outputs,
             )
 
             model_source.change(
                 fn=self.process_audio,
-                inputs=[audio_input, model_source],
-                outputs=[probability_output, classification_output, details_output],
+                inputs=processing_inputs,
+                outputs=processing_outputs,
             )
 
         return app

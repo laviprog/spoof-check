@@ -58,6 +58,7 @@ class AntispoofingClient(BaseClient):
         self,
         audio_file_path: str | Path,
         include_global_prediction: bool = True,
+        hop_sec: float = 2.0,
     ) -> AntiSpoofingResponse:
         audio_path = Path(audio_file_path)
         if not audio_path.exists():
@@ -79,6 +80,7 @@ class AntispoofingClient(BaseClient):
                         },
                         data={
                             "include_global_prediction": str(include_global_prediction).lower(),
+                            "hop_sec": str(hop_sec),
                         },
                     )
                 except httpx.HTTPStatusError as exc:
