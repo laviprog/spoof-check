@@ -11,7 +11,7 @@ services:
     networks:
       - spoof-check-network
     volumes:
-      - ./data/files:/app/files
+      - ./data/files:/app/data/files
       - ./models:/app/models
     restart: unless-stopped
     #deploy:
