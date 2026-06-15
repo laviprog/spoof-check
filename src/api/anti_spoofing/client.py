@@ -3,7 +3,7 @@ from typing import Any
 
 import httpx
 
-from src.api.anti_spoofing.schema import AntiSpoofingResponse, ErrorResponse, HealthResponse
+from src.api.anti_spoofing.schema import AntiSpoofingResponse, HealthResponse
 from src.api.base_client import BaseClient
 from src.config import settings
 
@@ -26,6 +26,33 @@ class AntispoofingClientError(RuntimeError):
 class AntispoofingClient(BaseClient):
     def __init__(self, base_url: str | None = None):
         super().__init__(base_url or settings.ANTISPOOFING_BASE_URL)
+        self._token: str | None = None
+
+    async def _ensure_authenticated(self) -> None:
+        if self._token is not None:
+            return
+
+        try:
+            response = await self._post(
+                "/v1/auth/token",
+                data={
+                    "username": settings.ANTISPOOFING_USERNAME,
+                    "password": settings.ANTISPOOFING_PASSWORD,
+                    "grant_type": "password",
+                },
+            )
+        except httpx.HTTPStatusError as exc:
+            raise AntispoofingClientError(
+                f"Authentication failed: HTTP {exc.response.status_code}",
+                status_code=exc.response.status_code,
+            ) from exc
+        except httpx.HTTPError as exc:
+            raise AntispoofingClientError(
+                f"Authentication request failed: {exc}"
+            ) from exc
+
+        self._token = response.json()["access_token"]
+        self._headers["Authorization"] = f"Bearer {self._token}"
 
     async def predict(
         self,
@@ -36,33 +63,43 @@ class AntispoofingClient(BaseClient):
         if not audio_path.exists():
             raise FileNotFoundError(f"Audio file does not exist: {audio_path}")
 
-        with audio_path.open("rb") as audio_file:
-            try:
-                response = await self._post(
-                    "/antispoofing/predict",
-                    files={
-                        "audio": (
-                            audio_path.name,
-                            audio_file,
-                            self._guess_content_type(audio_path),
-                        )
-                    },
-                    data={
-                        "include_global_prediction": str(include_global_prediction).lower(),
-                    },
-                )
-            except httpx.HTTPStatusError as exc:
-                raise self._build_error(exc.response) from exc
-            except httpx.HTTPError as exc:
-                raise AntispoofingClientError(
-                    f"External anti-spoofing service request failed: {exc}"
-                ) from exc
+        await self._ensure_authenticated()
 
-        return AntiSpoofingResponse.model_validate(response.json())
+        for attempt in range(2):
+            with audio_path.open("rb") as audio_file:
+                try:
+                    response = await self._post(
+                        "/v1/antispoofing/predict",
+                        files={
+                            "audio": (
+                                audio_path.name,
+                                audio_file,
+                                self._guess_content_type(audio_path),
+                            )
+                        },
+                        data={
+                            "include_global_prediction": str(include_global_prediction).lower(),
+                        },
+                    )
+                except httpx.HTTPStatusError as exc:
+                    if exc.response.status_code == 401 and attempt == 0:
+                        self._token = None
+                        self._headers.pop("Authorization", None)
+                        await self._ensure_authenticated()
+                        continue
+                    raise self._build_error(exc.response) from exc
+                except httpx.HTTPError as exc:
+                    raise AntispoofingClientError(
+                        f"External anti-spoofing service request failed: {exc}"
+                    ) from exc
+
+            return AntiSpoofingResponse.model_validate(response.json())
+
+        raise AntispoofingClientError("Authentication retry exhausted")
 
     async def health(self) -> HealthResponse:
         try:
-            response = await self._get("/antispoofing/health", timeout=10.0)
+            response = await self._get("/v1/antispoofing/health", timeout=10.0)
         except httpx.HTTPStatusError as exc:
             raise self._build_error(exc.response) from exc
         except httpx.HTTPError as exc:
@@ -86,16 +123,19 @@ class AntispoofingClient(BaseClient):
     @staticmethod
     def _build_error(response: httpx.Response) -> AntispoofingClientError:
         try:
-            error_response = ErrorResponse.model_validate(response.json())
+            body = response.json()
+            detail = body.get("detail", "")
+            if isinstance(detail, list):
+                message = "; ".join(
+                    f"{'.'.join(str(loc) for loc in d.get('loc', []))}: {d.get('msg', '')}"
+                    for d in detail
+                )
+            else:
+                message = str(detail)
         except Exception:
-            return AntispoofingClientError(
-                f"External anti-spoofing service returned HTTP {response.status_code}",
-                status_code=response.status_code,
-            )
+            message = ""
 
         return AntispoofingClientError(
-            error_response.error.message,
+            message or f"External anti-spoofing service returned HTTP {response.status_code}",
             status_code=response.status_code,
-            code=error_response.error.code,
-            details=error_response.error.details,
         )

@@ -1,11 +1,9 @@
-from enum import StrEnum
 from typing import Any, Literal
-from uuid import UUID
 
 from pydantic import BaseModel, ConfigDict, Field
 
 
-class PredictionLabel(StrEnum):
+class PredictionLabel(str):
     SPOOF = "spoof"
     BONAFIDE = "bonafide"
 
@@ -18,30 +16,34 @@ class AudioMetadata(BaseModel):
 
 
 class PredictionResult(BaseModel):
-    label: PredictionLabel
+    label: str
     confidence: float = Field(ge=0, le=1)
     spoof_probability: float = Field(ge=0, le=1)
     bonafide_probability: float = Field(ge=0, le=1)
+    antispoofing_score: float | None = None
+    prediction_by_logits: dict[str, Any] | None = None
+    prediction_by_score: dict[str, Any] | None = None
 
 
-class WindowPrediction(PredictionResult):
+class WindowPrediction(BaseModel):
     window_index: int
     start_sec: float
     end_sec: float
+    spoof_probability: float
+    bonafide_probability: float
+    antispoofing_score: float | None = None
 
 
 class ProcessingMetadata(BaseModel):
     model_name: str
     model_version: str
-    fixed_window_size_sec: float
     processing_time_ms: int
-    device: str | None = None
 
 
 class AntiSpoofingResponse(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
-    request_id: UUID
+    request_id: str
     audio: AudioMetadata
     windows: list[WindowPrediction]
     processing: ProcessingMetadata
@@ -51,15 +53,3 @@ class AntiSpoofingResponse(BaseModel):
 class HealthResponse(BaseModel):
     status: Literal["ok", "degraded", "unavailable"]
     model_loaded: bool
-    model_name: str | None = None
-    model_version: str | None = None
-
-
-class ErrorDetail(BaseModel):
-    code: str
-    message: str
-    details: dict[str, Any] | None = None
-
-
-class ErrorResponse(BaseModel):
-    error: ErrorDetail

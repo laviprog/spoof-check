@@ -18,6 +18,8 @@ class Settings(BaseSettings):
     MODELS_DIR: str = "models"  # Directory for storing models
 
     ANTISPOOFING_BASE_URL: str
+    ANTISPOOFING_USERNAME: str
+    ANTISPOOFING_PASSWORD: str
 
 
 settings = Settings()

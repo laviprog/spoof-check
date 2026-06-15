@@ -81,12 +81,12 @@ class GradioApp:
             "Подлинный": prediction.bonafide_probability,
             "Поддельный": prediction.spoof_probability,
         }
-        classification_text = self._format_classification(prediction.label.value)
+        classification_text = self._format_classification(prediction.label)
         details = self._format_external_details(result)
 
         log.info(
             "Audio processed by external API",
-            classification=prediction.label.value,
+            classification=prediction.label,
             num_windows=len(result.windows),
             request_id=str(result.request_id),
         )

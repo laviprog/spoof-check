@@ -2,7 +2,6 @@ from src.api.anti_spoofing.client import AntispoofingClient, AntispoofingClientE
 from src.api.anti_spoofing.schema import (
     AntiSpoofingResponse,
     AudioMetadata,
-    ErrorResponse,
     HealthResponse,
     PredictionLabel,
     PredictionResult,
@@ -15,7 +14,6 @@ __all__ = [
     "AntispoofingClientError",
     "AntiSpoofingResponse",
     "AudioMetadata",
-    "ErrorResponse",
     "HealthResponse",
     "PredictionLabel",
     "PredictionResult",
