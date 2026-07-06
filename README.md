@@ -7,17 +7,17 @@
 | src/\_\_init\_\_.py                    |        0 |        0 |        0 |        0 |    100% |           |
 | src/api/\_\_init\_\_.py                |        0 |        0 |        0 |        0 |    100% |           |
 | src/api/anti\_spoofing/\_\_init\_\_.py |        3 |        0 |        0 |        0 |    100% |           |
-| src/api/anti\_spoofing/client.py       |       70 |       10 |       10 |        2 |     85% |33, 49-50, 91-92, 98, 103-106 |
+| src/api/anti\_spoofing/client.py       |       75 |       12 |       14 |        4 |     82% |30, 38, 41, 57-58, 103-104, 110, 115-118 |
 | src/api/anti\_spoofing/schema.py       |       22 |        0 |        0 |        0 |    100% |           |
 | src/api/base\_client.py                |       15 |        0 |        0 |        0 |    100% |           |
-| src/config.py                          |       11 |        0 |        0 |        0 |    100% |           |
+| src/config.py                          |       20 |        1 |        0 |        0 |     95% |        27 |
 | src/core/\_\_init\_\_.py               |        0 |        0 |        0 |        0 |    100% |           |
 | src/services/\_\_init\_\_.py           |        0 |        0 |        0 |        0 |    100% |           |
 | src/services/audio.py                  |       48 |       35 |        4 |        0 |     25% |20-23, 26-28, 34-50, 59-64, 70-92 |
 | src/utils.py                           |        3 |        0 |        0 |        0 |    100% |           |
 | src/web/\_\_init\_\_.py                |        0 |        0 |        0 |        0 |    100% |           |
-| src/web/gradio\_app.py                 |       88 |       57 |       10 |        0 |     34% |18-20, 31-45, 48-70, 77-94, 126-140, 146-243, 255-264, 277 |
-| **TOTAL**                              |  **260** |  **102** |   **24** |    **2** | **59%** |           |
+| src/web/gradio\_app.py                 |       94 |       63 |       16 |        0 |     30% |18-20, 34-48, 51-73, 80-100, 132-146, 152-255, 267-276, 289 |
+| **TOTAL**                              |  **280** |  **111** |   **34** |    **4** | **58%** |           |
 
 
 ## Setup coverage badge
