@@ -16,8 +16,11 @@ class GradioApp:
     def __init__(self):
         """Initialize the Gradio app."""
         self.audio_service = AudioService()
-        self.antispoofing_client = AntispoofingClient()
-        log.info("GradioApp initialized")
+        self.antispoofing_client = AntispoofingClient() if settings.antispoofing_enabled else None
+        log.info(
+            "GradioApp initialized",
+            external_model_enabled=settings.antispoofing_enabled,
+        )
 
     async def process_audio(
         self,
@@ -74,6 +77,9 @@ class GradioApp:
         audio_file,
         hop_sec: float,
     ) -> tuple[dict[str, float], str, str]:
+        if self.antispoofing_client is None:
+            raise RuntimeError("Внешняя модель не настроена: задайте ANTISPOOFING_BASE_URL")
+
         result = await self.antispoofing_client.predict(audio_file, hop_sec=hop_sec)
         prediction = result.global_prediction or self._aggregate_external_windows(result)
 
@@ -166,10 +172,15 @@ class GradioApp:
                         sources=["upload"],
                     )
 
+                    model_source_choices = ["Локальная модель"]
+                    if settings.antispoofing_enabled:
+                        model_source_choices.append("Внешняя модель")
+
                     model_source = gr.Radio(
-                        choices=["Локальная модель", "Внешняя модель"],
+                        choices=model_source_choices,
                         value="Локальная модель",
                         label="Источник модели",
+                        visible=settings.antispoofing_enabled,
                     )
 
                     hop_sec_slider = gr.Slider(
@@ -182,11 +193,12 @@ class GradioApp:
                         visible=False,
                     )
 
-                    model_source.change(
-                        fn=lambda src: gr.update(visible=src == "Внешняя модель"),
-                        inputs=model_source,
-                        outputs=hop_sec_slider,
-                    )
+                    if settings.antispoofing_enabled:
+                        model_source.change(
+                            fn=lambda src: gr.update(visible=src == "Внешняя модель"),
+                            inputs=model_source,
+                            outputs=hop_sec_slider,
+                        )
 
                     submit_btn = gr.Button(
                         "🔍 Проанализировать аудио",
