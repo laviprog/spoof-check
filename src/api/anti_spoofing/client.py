@@ -25,10 +25,18 @@ class AntispoofingClientError(RuntimeError):
 
 class AntispoofingClient(BaseClient):
     def __init__(self, base_url: str | None = None):
-        super().__init__(base_url or settings.ANTISPOOFING_BASE_URL)
+        resolved_base_url = base_url or settings.ANTISPOOFING_BASE_URL
+        if not resolved_base_url:
+            raise AntispoofingClientError(
+                "External anti-spoofing service is not configured: set ANTISPOOFING_BASE_URL"
+            )
+        super().__init__(resolved_base_url)
         self._token: str | None = None
 
     async def _ensure_authenticated(self) -> None:
+        if not settings.antispoofing_auth_enabled:
+            return
+
         if self._token is not None:
             return
 
@@ -82,7 +90,11 @@ class AntispoofingClient(BaseClient):
                         },
                     )
                 except httpx.HTTPStatusError as exc:
-                    if exc.response.status_code == 401 and attempt == 0:
+                    if (
+                        exc.response.status_code == 401
+                        and attempt == 0
+                        and settings.antispoofing_auth_enabled
+                    ):
                         self._token = None
                         self._headers.pop("Authorization", None)
                         await self._ensure_authenticated()

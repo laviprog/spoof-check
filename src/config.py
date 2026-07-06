@@ -17,9 +17,19 @@ class Settings(BaseSettings):
     COMPUTE_TYPE: str = "float32"
     MODELS_DIR: str = "models"  # Directory for storing models
 
-    ANTISPOOFING_BASE_URL: str
-    ANTISPOOFING_USERNAME: str
-    ANTISPOOFING_PASSWORD: str
+    ANTISPOOFING_BASE_URL: str | None = None
+    ANTISPOOFING_USERNAME: str | None = None
+    ANTISPOOFING_PASSWORD: str | None = None
+
+    @property
+    def antispoofing_enabled(self) -> bool:
+        """External anti-spoofing model is available when its base URL is configured."""
+        return bool(self.ANTISPOOFING_BASE_URL)
+
+    @property
+    def antispoofing_auth_enabled(self) -> bool:
+        """Authentication is used only when both username and password are configured."""
+        return bool(self.ANTISPOOFING_USERNAME and self.ANTISPOOFING_PASSWORD)
 
 
-settings = Settings()  # ty: ignore[missing-argument]  # values loaded from env/.env
+settings = Settings()
