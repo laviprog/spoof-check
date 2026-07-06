@@ -39,6 +39,7 @@ class AudioService:
 
             # Copy file
             import shutil
+
             shutil.copy2(file_path, save_path)
 
             log.info("File saved", original=file_path, saved=str(save_path))

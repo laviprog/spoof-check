@@ -1,12 +1,14 @@
-import math, torch
+import math
+
+import torch
 import torch.nn as nn
-from transformers import Wav2Vec2Model
 from huggingface_hub import PyTorchModelHubMixin
+from transformers import Wav2Vec2Model
 
 
 class SEModule(nn.Module):
     def __init__(self, channels, bottleneck=128):
-        super(SEModule, self).__init__()
+        super().__init__()
         self.se = nn.Sequential(
             nn.AdaptiveAvgPool1d(1),
             nn.Conv1d(channels, bottleneck, kernel_size=1, padding=0),
@@ -23,24 +25,26 @@ class SEModule(nn.Module):
 
 class Bottle2neck(nn.Module):
     def __init__(self, inplanes, planes, kernel_size=None, dilation=None, scale=8):
-        super(Bottle2neck, self).__init__()
-        width       = int(math.floor(planes / scale))
-        self.conv1  = nn.Conv1d(inplanes, width * scale, kernel_size=1)
-        self.bn1    = nn.BatchNorm1d(width * scale)
-        self.nums   = scale - 1
-        convs       = []
-        bns         = []
+        super().__init__()
+        width = math.floor(planes / scale)
+        self.conv1 = nn.Conv1d(inplanes, width * scale, kernel_size=1)
+        self.bn1 = nn.BatchNorm1d(width * scale)
+        self.nums = scale - 1
+        convs = []
+        bns = []
         num_pad = math.floor(kernel_size / 2) * dilation
-        for i in range(self.nums):
-            convs.append(nn.Conv1d(width, width, kernel_size=kernel_size, dilation=dilation, padding=num_pad))
+        for _ in range(self.nums):
+            convs.append(
+                nn.Conv1d(width, width, kernel_size=kernel_size, dilation=dilation, padding=num_pad)
+            )
             bns.append(nn.BatchNorm1d(width))
-        self.convs  = nn.ModuleList(convs)
-        self.bns    = nn.ModuleList(bns)
-        self.conv3  = nn.Conv1d(width * scale, planes, kernel_size=1)
-        self.bn3    = nn.BatchNorm1d(planes)
-        self.relu   = nn.ReLU()
-        self.width  = width
-        self.se     = SEModule(planes)
+        self.convs = nn.ModuleList(convs)
+        self.bns = nn.ModuleList(bns)
+        self.conv3 = nn.Conv1d(width * scale, planes, kernel_size=1)
+        self.bn3 = nn.BatchNorm1d(planes)
+        self.relu = nn.ReLU()
+        self.width = width
+        self.se = SEModule(planes)
 
     def forward(self, x):
         residual = x
@@ -50,17 +54,14 @@ class Bottle2neck(nn.Module):
 
         spx = torch.split(out, self.width, 1)
         for i in range(self.nums):
-            if i == 0:
+            if i == 0:  # noqa: SIM108 — ternary would use `sp` before assignment (F821)
                 sp = spx[i]
             else:
                 sp = sp + spx[i]
             sp = self.convs[i](sp)
             sp = self.relu(sp)
             sp = self.bns[i](sp)
-            if i == 0:
-                out = sp
-            else:
-                out = torch.cat((out, sp), 1)
+            out = sp if i == 0 else torch.cat((out, sp), 1)
         out = torch.cat((out, spx[self.nums]), 1)
 
         out = self.conv3(out)
@@ -73,18 +74,17 @@ class Bottle2neck(nn.Module):
 
 
 class ECAPA_TDNN(nn.Module):
-
     def __init__(self, C):
 
-        super(ECAPA_TDNN, self).__init__()
-        self.conv1  = nn.Conv1d(128, C, kernel_size=5, stride=1, padding=2)
-        self.relu   = nn.ReLU()
-        self.bn1    = nn.BatchNorm1d(C)
+        super().__init__()
+        self.conv1 = nn.Conv1d(128, C, kernel_size=5, stride=1, padding=2)
+        self.relu = nn.ReLU()
+        self.bn1 = nn.BatchNorm1d(C)
         self.layer1 = Bottle2neck(C, C, kernel_size=3, dilation=2, scale=8)
         self.layer2 = Bottle2neck(C, C, kernel_size=3, dilation=3, scale=8)
         self.layer3 = Bottle2neck(C, C, kernel_size=3, dilation=4, scale=8)
         self.layer4 = Bottle2neck(C, C, kernel_size=3, dilation=5, scale=8)
-        # I fixed the shape of the output from MFA layer, that is close to the setting from ECAPA paper.
+        # Fixed the shape of the output from the MFA layer, close to the ECAPA paper setting.
         self.layer5 = nn.Conv1d(4 * C, 1536, kernel_size=1)
         self.attention = nn.Sequential(
             nn.Conv1d(4608, 256, kernel_size=1),
@@ -113,12 +113,19 @@ class ECAPA_TDNN(nn.Module):
 
         t = x.size()[-1]
 
-        global_x = torch.cat((x, torch.mean(x, dim=2, keepdim=True).repeat(1, 1, t), torch.sqrt(torch.var(x, dim=2, keepdim=True).clamp(min=1e-4)).repeat(1, 1, t)), dim=1)
+        global_x = torch.cat(
+            (
+                x,
+                torch.mean(x, dim=2, keepdim=True).repeat(1, 1, t),
+                torch.sqrt(torch.var(x, dim=2, keepdim=True).clamp(min=1e-4)).repeat(1, 1, t),
+            ),
+            dim=1,
+        )
 
         w = self.attention(global_x)
 
         mu = torch.sum(x * w, dim=2)
-        sg = torch.sqrt((torch.sum((x**2) * w, dim=2) - mu ** 2).clamp(min=1e-4))
+        sg = torch.sqrt((torch.sum((x**2) * w, dim=2) - mu**2).clamp(min=1e-4))
 
         x = torch.cat((mu, sg), 1)
         x = self.bn5(x)
@@ -130,11 +137,13 @@ class ECAPA_TDNN(nn.Module):
 class Wav2Vec2Encoder(nn.Module):
     """SSL encoder based on Hugging Face's Wav2Vec2 model."""
 
-    def __init__(self,
-                 model_name_or_path: str = "facebook/wav2vec2-base-960h",
-                 output_attentions: bool = False,
-                 output_hidden_states: bool = False,
-                 normalize_waveform: bool = False):
+    def __init__(
+        self,
+        model_name_or_path: str = "facebook/wav2vec2-base-960h",
+        output_attentions: bool = False,
+        output_hidden_states: bool = False,
+        normalize_waveform: bool = False,
+    ):
         """Initialize the Wav2Vec2 encoder.
 
         Args:
@@ -151,12 +160,9 @@ class Wav2Vec2Encoder(nn.Module):
         self.normalize_waveform = normalize_waveform
 
         # Load Wav2Vec2 model
-        self.model = Wav2Vec2Model.from_pretrained(
-            model_name_or_path,
-            gradient_checkpointing=False)
+        self.model = Wav2Vec2Model.from_pretrained(model_name_or_path, gradient_checkpointing=False)
         self.model.config.apply_spec_augment = False
         self.model.masked_spec_embed = None
-
 
     def forward(self, x):
         """Forward pass through the Wav2Vec2 encoder.
@@ -167,7 +173,8 @@ class Wav2Vec2Encoder(nn.Module):
         Returns:
             Extracted features of shape (batch_size, sequence_length, 1024)
         """
-        # Handle shape: convert (batch_size, sequence_length, channels) to (batch_size, sequence_length)
+        # Handle shape: convert (batch_size, sequence_length, channels)
+        # to (batch_size, sequence_length)
         if x.ndim == 3:
             x = x.squeeze(-1)  # Remove channel dimension if present
 
@@ -180,7 +187,7 @@ class Wav2Vec2Encoder(nn.Module):
             x,
             output_attentions=self.output_attentions,
             output_hidden_states=self.output_hidden_states,
-            return_dict=True
+            return_dict=True,
         )
 
         # Extract last hidden state
@@ -190,9 +197,15 @@ class Wav2Vec2Encoder(nn.Module):
 
 
 class MLPBridge(nn.Module):
-
-    def __init__(self, input_dim: int, output_dim: int, hidden_dim: int = None,
-                 dropout: float = 0.1, activation: str = nn.ReLU, n_layers: int = 1):
+    def __init__(
+        self,
+        input_dim: int,
+        output_dim: int,
+        hidden_dim: int | None = None,
+        dropout: float = 0.1,
+        activation: str = nn.ReLU,
+        n_layers: int = 1,
+    ):
         """Initialize the MLP bridge.
 
         Args:
@@ -213,7 +226,9 @@ class MLPBridge(nn.Module):
         self.hidden_dim = hidden_dim
         self.n_layers = n_layers
 
-        assert hasattr(activation, 'forward') and callable(getattr(activation, 'forward', None)), "Activation class must have a callable forward() method."
+        assert hasattr(activation, "forward") and callable(getattr(activation, "forward", None)), (
+            "Activation class must have a callable forward() method."
+        )
         act_fn = activation
 
         layers = []

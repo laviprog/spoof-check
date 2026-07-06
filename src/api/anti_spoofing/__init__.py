@@ -10,9 +10,9 @@ from src.api.anti_spoofing.schema import (
 )
 
 __all__ = [
+    "AntiSpoofingResponse",
     "AntispoofingClient",
     "AntispoofingClientError",
-    "AntiSpoofingResponse",
     "AudioMetadata",
     "HealthResponse",
     "PredictionLabel",

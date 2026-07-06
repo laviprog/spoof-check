@@ -1,9 +1,10 @@
-from src.logging import configure as configure_logging
+import structlog
+
+from src.log_config import configure as configure_logging
 from src.web.gradio_app import create_app
 
 configure_logging()
 
-import structlog
 log = structlog.get_logger()
 
 

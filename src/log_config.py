@@ -1,12 +1,11 @@
 import logging
 import logging.config
-from typing import Any, Generic, TypeVar
+from typing import Any, ClassVar
 
 import structlog
 
 from src.config import settings
-
-RendererType = TypeVar("RendererType")
+from src.utils import is_dev_env
 
 Logger = structlog.stdlib.BoundLogger
 
@@ -15,9 +14,9 @@ def get_level() -> str:
     return settings.LOG_LEVEL
 
 
-class Logging(Generic[RendererType]):
+class Logging[RendererType]:
     timestamper = structlog.processors.TimeStamper(fmt="iso")
-    shared_processors = [
+    shared_processors: ClassVar[list[Any]] = [
         structlog.contextvars.merge_contextvars,
         structlog.stdlib.add_log_level,
         structlog.stdlib.add_logger_name,
@@ -32,8 +31,11 @@ class Logging(Generic[RendererType]):
         """
         Returns the list of processors to be used by structlog.
         """
-        cls.shared_processors.append(structlog.processors.format_exc_info)
-        return cls.shared_processors + [structlog.stdlib.ProcessorFormatter.wrap_for_formatter]
+        return [
+            *cls.shared_processors,
+            structlog.processors.format_exc_info,
+            structlog.stdlib.ProcessorFormatter.wrap_for_formatter,
+        ]
 
     @classmethod
     def get_renderer(cls) -> RendererType:
@@ -48,8 +50,6 @@ class Logging(Generic[RendererType]):
         """
         level = get_level()
 
-        cls.shared_processors.append(structlog.processors.format_exc_info)
-
         logging.config.dictConfig(
             {
                 "version": 1,
@@ -62,7 +62,10 @@ class Logging(Generic[RendererType]):
                             structlog.stdlib.ProcessorFormatter.remove_processors_meta,
                             cls.get_renderer(),
                         ],
-                        "foreign_pre_chain": cls.shared_processors,
+                        "foreign_pre_chain": [
+                            *cls.shared_processors,
+                            structlog.processors.format_exc_info,
+                        ],
                     },
                 },
                 "handlers": {
@@ -123,11 +126,18 @@ class Development(Logging[structlog.dev.ConsoleRenderer]):
         return structlog.dev.ConsoleRenderer()
 
 
+def get_log(name: str | None = None) -> Logger:
+    """
+    Returns a logger configured with the given name.
+    """
+    return structlog.get_logger(name)
+
+
 def configure() -> None:
     """
     Configures logging based on the environment settings.
     """
-    if settings.ENV == "prod":
+    if not is_dev_env():
         Production.configure()
     else:
         Development.configure()

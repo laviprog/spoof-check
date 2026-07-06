@@ -1,5 +1,3 @@
-from typing import Dict, Tuple
-
 import gradio as gr
 import structlog
 
@@ -26,7 +24,7 @@ class GradioApp:
         audio_file,
         model_source: str,
         hop_sec: float,
-    ) -> Tuple[Dict[str, float], str, str]:
+    ) -> tuple[dict[str, float], str, str]:
         """
         Process uploaded audio file and return results.
         """
@@ -43,10 +41,10 @@ class GradioApp:
 
         except Exception as e:
             log.error("Failed to process audio", error=str(e))
-            error_msg = f"❌ **Ошибка**: {str(e)}"
+            error_msg = f"❌ **Ошибка**: {e!s}"
             return {}, error_msg, ""
 
-    def _process_with_local_model(self, audio_file) -> Tuple[Dict[str, float], str, str]:
+    def _process_with_local_model(self, audio_file) -> tuple[dict[str, float], str, str]:
         result = self.audio_service.detect_spoof(audio_file, cleanup=True)
 
         probabilities = {
@@ -75,7 +73,7 @@ class GradioApp:
         self,
         audio_file,
         hop_sec: float,
-    ) -> Tuple[Dict[str, float], str, str]:
+    ) -> tuple[dict[str, float], str, str]:
         result = await self.antispoofing_client.predict(audio_file, hop_sec=hop_sec)
         prediction = result.global_prediction or self._aggregate_external_windows(result)
 
@@ -198,7 +196,7 @@ class GradioApp:
 
                     gr.Markdown(
                         """
-                        ### ℹ️ Советы
+                        ### 💡 Советы
                         - Загружайте чёткие аудиофайлы для лучших результатов
                         - Длинные файлы автоматически разбиваются на фрагменты
                         - Время обработки зависит от длительности файла

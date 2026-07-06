@@ -1,11 +1,12 @@
+from pathlib import Path
+
+import numpy as np
+import structlog
 import torch
 import torchaudio
-import numpy as np
-from pathlib import Path
-import structlog
 
-from src.core.model import Spectra0Model
 from src.config import settings
+from src.core.model import Spectra0Model
 
 log = structlog.get_logger()
 
@@ -18,7 +19,7 @@ class SpoofDetector:
     def __init__(
         self,
         model_name: str = "MTUCI/spectra_0",
-        device: str = None,
+        device: str | None = None,
         threshold: float = -1.0625009,
         chunk_duration: float = 4.0,
         overlap: float = 0.5,
@@ -194,7 +195,7 @@ class SpoofDetector:
                 "num_chunks": len(chunks),
                 "chunk_predictions": [
                     {"bonafide": b, "spoof": s}
-                    for b, s in zip(bonafide_probs, spoof_probs)
+                    for b, s in zip(bonafide_probs, spoof_probs, strict=True)
                 ],
             }
 

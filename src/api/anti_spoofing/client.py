@@ -47,9 +47,7 @@ class AntispoofingClient(BaseClient):
                 status_code=exc.response.status_code,
             ) from exc
         except httpx.HTTPError as exc:
-            raise AntispoofingClientError(
-                f"Authentication request failed: {exc}"
-            ) from exc
+            raise AntispoofingClientError(f"Authentication request failed: {exc}") from exc
 
         self._token = response.json()["access_token"]
         self._headers["Authorization"] = f"Bearer {self._token}"
@@ -61,13 +59,13 @@ class AntispoofingClient(BaseClient):
         hop_sec: float = 2.0,
     ) -> AntiSpoofingResponse:
         audio_path = Path(audio_file_path)
-        if not audio_path.exists():
+        if not audio_path.exists():  # noqa: ASYNC240 — local file, no async fs backend in use
             raise FileNotFoundError(f"Audio file does not exist: {audio_path}")
 
         await self._ensure_authenticated()
 
         for attempt in range(2):
-            with audio_path.open("rb") as audio_file:
+            with audio_path.open("rb") as audio_file:  # noqa: ASYNC230 — local file read for httpx upload
                 try:
                     response = await self._post(
                         "/v1/antispoofing/predict",
