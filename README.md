@@ -23,13 +23,13 @@
 
 ## Table of Contents
 
-- [Features](#-features)
-- [How It Works](#-how-it-works)
-- [Quick Start](#-quick-start)
+- [Features](#features)
+- [How It Works](#how-it-works)
+- [Quick Start](#quick-start)
   - [Docker (recommended)](#-docker-recommended)
-  - [Local Development](#-local-development)
-- [Configuration](#%EF%B8%8F-configuration)
-- [Development](#%EF%B8%8F-development)
+  - [Local Development](#local-development)
+- [Configuration](#configuration)
+- [Development](#development)
   - [Commands](#commands)
   - [Project Structure](#project-structure)
   - [Quality Tooling](#quality-tooling)
@@ -103,7 +103,7 @@ All settings are read from environment variables or a `.env` file (see [.env.exa
 | `ANTISPOOFING_USERNAME` | — | Username for the external API (optional; auth is enabled only when both username and password are set) |
 | `ANTISPOOFING_PASSWORD` | — | Password for the external API (optional) |
 
-## 🛠️ Development
+## Development
 
 ### Commands
 
