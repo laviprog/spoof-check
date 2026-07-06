@@ -22,4 +22,4 @@ class Settings(BaseSettings):
     ANTISPOOFING_PASSWORD: str
 
 
-settings = Settings()
+settings = Settings()  # ty: ignore[missing-argument]  # values loaded from env/.env
